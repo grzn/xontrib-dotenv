@@ -30,12 +30,17 @@ class DotEnv(object):
     def close_all(self):
         self.stack.pop_all().close()
 
+    def start_from_current_directory(self):
+        curdir = os.path.abspath('.')
+        if self.push(curdir):
+            self.directories.append(curdir)
+
     def on_chdir_callback(self):
         def callback(olddir, newdir, **kwargs):
             if newdir in self.directories:
                 return
-            if not all(newdir.startswith(dirpath) for dirpath in self.directories):
-                self.directories = []
+            self.directories = [dirpath for dirpath in self.directories if
+                                newdir.startswith(dirpath)]
             self.close_all()
             for dirpath in self.directories:
                 self.push(dirpath)
@@ -68,7 +73,8 @@ def dotenv_file_context(filepath):
     with ${...}.swap(**environment_variables):
         yield
 
-dotenv = DotEnv()
-_ = events.on_chdir(dotenv.on_chdir_callback())
+dotenv_context = DotEnv()
+dotenv_context.start_from_current_directory()
+_ = events.on_chdir(dotenv_context.on_chdir_callback())
 
-aliases['dotenv'] = dotenv
+aliases['dotenv'] = dotenv_context
